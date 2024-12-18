@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ***********************************************************************/
-
+#define SOURCECODE_FILENAME GLZAencode
 // GLZAencode.c
 //   Encodes files created by GLZAcompress
 //
@@ -26,11 +26,16 @@ limitations under the License.
 //       -v1 prints the dicitonary to stdout, simple symbols followed by complex symbols in the order they were created
 
 
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "threading_and_main.h"
 #define encode
 
 const uint8_t MAX_BITS_IN_CODE = 25;
@@ -217,7 +222,7 @@ uint8_t find_last(uint32_t symbol_number) {
 }
 
 
-uint8_t find_last_UTF8(uint32_t symbol_number) {
+static uint8_t find_last_UTF8(uint32_t symbol_number) {
   uint8_t last_char;
   uint32_t last_symbol = symbol[sd[symbol_number+1].define_symbol_start_index - 2];
   if (last_symbol >= start_my_symbols) {
@@ -235,7 +240,7 @@ uint8_t find_last_UTF8(uint32_t symbol_number) {
 }
 
 
-void remove_mtfg_queue_symbol_16(uint8_t mtfg_queue_position) {
+static void remove_mtfg_queue_symbol_16(uint8_t mtfg_queue_position) {
   uint8_t qp = mtfg_queue_position - 16;
   while (qp != 15) {
     *(mtfg_queue_16 + ((mtfg_queue_16_offset + qp) & 0xF)) = *(mtfg_queue_16 + ((mtfg_queue_16_offset + qp + 1) & 0xF));
@@ -254,7 +259,7 @@ void remove_mtfg_queue_symbol_16(uint8_t mtfg_queue_position) {
 }
 
 
-void remove_mtfg_queue_symbol_32(uint8_t mtfg_queue_position) {
+static void remove_mtfg_queue_symbol_32(uint8_t mtfg_queue_position) {
   uint8_t qp = mtfg_queue_position - 32;
   while (qp != 31) {
     *(mtfg_queue_32 + ((mtfg_queue_32_offset + qp) & 0x1F)) = *(mtfg_queue_32 + ((mtfg_queue_32_offset + qp + 1) & 0x1F));
@@ -271,7 +276,7 @@ void remove_mtfg_queue_symbol_32(uint8_t mtfg_queue_position) {
 }
 
 
-void remove_mtfg_queue_symbol_64(uint8_t mtfg_queue_position) {
+static void remove_mtfg_queue_symbol_64(uint8_t mtfg_queue_position) {
   uint8_t qp = mtfg_queue_position - 64;
   while (qp != 63) {
     *(mtfg_queue_64 + ((mtfg_queue_64_offset + qp) & 0x3F)) = *(mtfg_queue_64 + ((mtfg_queue_64_offset + qp + 1) & 0x3F));
@@ -286,7 +291,7 @@ void remove_mtfg_queue_symbol_64(uint8_t mtfg_queue_position) {
 }
 
 
-void remove_mtfg_queue_symbol_128(uint8_t mtfg_queue_position) {
+static void remove_mtfg_queue_symbol_128(uint8_t mtfg_queue_position) {
   uint8_t qp = mtfg_queue_position - 128;
   while (qp != 63) {
     *(mtfg_queue_128 + ((mtfg_queue_128_offset + qp) & 0x3F))
@@ -300,7 +305,7 @@ void remove_mtfg_queue_symbol_128(uint8_t mtfg_queue_position) {
 }
 
 
-void remove_mtfg_queue_symbol_192(uint8_t mtfg_queue_position) {
+static void remove_mtfg_queue_symbol_192(uint8_t mtfg_queue_position) {
   uint8_t qp = mtfg_queue_position - 192;
   while (qp != 63) {
     *(mtfg_queue_192 + ((mtfg_queue_192_offset + qp) & 0x3F))
@@ -312,7 +317,7 @@ void remove_mtfg_queue_symbol_192(uint8_t mtfg_queue_position) {
 }
 
 
-void increment_mtfg_queue_0(uint32_t symbol_number) {
+static void increment_mtfg_queue_0(uint32_t symbol_number) {
   mtfg_queue_symbol_7 = mtfg_queue_0[7];
   mtfg_queue_0[7] = mtfg_queue_0[6];
   mtfg_queue_0[6] = mtfg_queue_0[5];
@@ -326,7 +331,7 @@ void increment_mtfg_queue_0(uint32_t symbol_number) {
 }
 
 
-void increment_mtfg_queue_8() {
+static void increment_mtfg_queue_8() {
   mtfg_queue_8_offset = (mtfg_queue_8_offset - 1) & 7;
   mtfg_queue_symbol_15 = *(mtfg_queue_8 + mtfg_queue_8_offset);
   *(mtfg_queue_8 + mtfg_queue_8_offset) = mtfg_queue_symbol_7;
@@ -632,7 +637,7 @@ void manage_mtfg_queue1(uint32_t symbol_number) {
 }
 
 
-void manage_mtfg_queue(uint32_t symbol_number, uint8_t in_definition) {
+static void manage_mtfg_queue(uint32_t symbol_number, uint8_t in_definition) {
   uint8_t mtfg_queue_position = 0;
   uint8_t cap_queue_position = 0;
   uint8_t subqueue_position;
@@ -871,7 +876,7 @@ void manage_mtfg_queue(uint32_t symbol_number, uint8_t in_definition) {
 }
 
 
-void manage_mtfg_queue_prior_cap(uint32_t symbol_number, uint8_t in_definition) {
+static void manage_mtfg_queue_prior_cap(uint32_t symbol_number, uint8_t in_definition) {
   uint8_t mtfg_queue_position = 0;
   uint8_t cap_queue_position = 0;
   uint8_t subqueue_position;
@@ -1143,7 +1148,7 @@ void manage_mtfg_queue_prior_cap(uint32_t symbol_number, uint8_t in_definition) 
 }
 
 
-void encode_dictionary_symbol(uint32_t dsymbol) {
+static void encode_dictionary_symbol(uint32_t dsymbol) {
   symbol_index = sd[dsymbol].array_index;
   Symbol = sd[dsymbol].starts;
   if (cap_encoded) {
@@ -1234,7 +1239,7 @@ void encode_dictionary_symbol(uint32_t dsymbol) {
 }
 
 
-void update_mtf_queue(uint32_t this_symbol, uint32_t symbol_inst, uint32_t this_symbol_count) {
+static void update_mtf_queue(uint32_t this_symbol, uint32_t symbol_inst, uint32_t this_symbol_count) {
   uint8_t i1;
   if (symbol_inst != this_symbol_count - 1) { // not the last instance
     if (sd[this_symbol].type & 8) { // symbol in queue
@@ -1280,12 +1285,13 @@ void update_mtf_queue(uint32_t this_symbol, uint32_t symbol_inst, uint32_t this_
 }
 
 
-void add_dictionary_symbol(uint32_t symbol, uint8_t bits) {
+static void add_dictionary_symbol(uint32_t symbol, uint8_t bits) {
   uint8_t first_char = sd[symbol].starts;
   if (nsob[first_char][bits] == ((uint32_t)1 << sym_list_bits[first_char][bits])) {
+      void* newmem;
     sym_list_bits[first_char][bits]++;
-    if (0 == (sym_list_ptrs[first_char][bits]
-        = (uint32_t *)realloc(sym_list_ptrs[first_char][bits], sizeof(uint32_t) * (1 << sym_list_bits[first_char][bits])))) {
+    newmem = realloc(sym_list_ptrs[first_char][bits], sizeof(uint32_t) * (1 << sym_list_bits[first_char][bits]));
+    if (0 == (sym_list_ptrs[first_char][bits] = (uint32_t *)newmem)) {
       fprintf(stderr,"FATAL ERROR - symbol list realloc failure\n");
       exit(EXIT_FAILURE);
     }
@@ -1324,7 +1330,7 @@ void add_dictionary_symbol(uint32_t symbol, uint8_t bits) {
 }
 
 
-void remove_dictionary_symbol(uint32_t symbol, uint8_t bits) {
+static void remove_dictionary_symbol(uint32_t symbol, uint8_t bits) {
   uint8_t first_char = sd[symbol].starts;
   sym_list_ptrs[first_char][bits][sd[symbol].array_index] = sym_list_ptrs[first_char][bits][--nsob[first_char][bits]];
   sd[sym_list_ptrs[first_char][bits][nsob[first_char][bits]]].array_index = sd[symbol].array_index;
@@ -1332,8 +1338,8 @@ void remove_dictionary_symbol(uint32_t symbol, uint8_t bits) {
 }
 
 
-void manage_mtf_queue(uint32_t this_symbol, uint32_t symbol_inst, uint32_t this_symbol_count, uint8_t in_definition) {
-  uint8_t i1, mtf_queue_position;
+static void manage_mtf_queue(uint32_t this_symbol, uint32_t symbol_inst, uint32_t this_symbol_count, uint8_t in_definition) {
+  uint8_t i1=0, mtf_queue_position;
   mtf_queue_number = (uint8_t)this_symbol_count - 2;
   if (symbol_inst != this_symbol_count - 1) { // not the last instance
     if (sd[this_symbol].type & 8) {
@@ -1481,7 +1487,7 @@ void manage_mtf_queue(uint32_t this_symbol, uint32_t symbol_inst, uint32_t this_
 }
 
 
-void manage_mtf_symbol(uint32_t this_symbol, uint32_t symbol_inst, uint32_t this_symbol_count, uint8_t in_definition) {
+static void manage_mtf_symbol(uint32_t this_symbol, uint32_t symbol_inst, uint32_t this_symbol_count, uint8_t in_definition) {
   CodeLength = sd[this_symbol].code_length;
   if (prior_is_cap == 0) {
     if (in_definition == 0)
@@ -1505,7 +1511,7 @@ void manage_mtf_symbol(uint32_t this_symbol, uint32_t symbol_inst, uint32_t this
 }
 
 
-uint32_t count_symbols(uint32_t this_symbol) {
+static uint32_t count_symbols(uint32_t this_symbol) {
   uint32_t string_symbols, *symbol_string_ptr, *end_symbol_string_ptr;
   if (this_symbol < start_my_symbols)
     return(1);
@@ -2273,7 +2279,7 @@ void embed_define(uint32_t define_symbol, uint8_t in_definition) {
 }
 
 
-void print_usage() {
+static void print_usage() {
   fprintf(stderr,"ERROR - Invalid format - Use GLZAencode [-v#] [-m#] <infile> <outfile>\n");
   fprintf(stderr," where -v0 causes the dictionary to be written to stdout in frequency order\n");
   fprintf(stderr,"       -v1 causes the dictionary to be written to stdout in the order of creation,\n");
@@ -2292,7 +2298,7 @@ int main(int argc, char* argv[]) {
   uint32_t min_ranked_symbols, ranked_symbols_save, num_ranked_symbols, num_regular_definitions;
   uint32_t mtfg_symbols_reduced, mtf_overflow_symbols_to_code;
   uint32_t *end_symbol_ptr;
-  uint32_t *ranked_symbols_ptr, *end_ranked_symbols_ptr, *min_ranked_symbols_ptr, *max_ranked_symbols_ptr;
+  uint32_t *ranked_symbols_ptr, *end_ranked_symbols_ptr, *min_ranked_symbols_ptr, *max_ranked_symbols_ptr=NULL;
   uint32_t *min_one_instance_ranked_symbols_ptr, *next_sorted_symbol_ptr;
   int32_t remaining_symbols_to_code, remaining_code_space;
   double d_remaining_symbols_to_code, symbol_inst_factor;
@@ -2379,7 +2385,7 @@ int main(int argc, char* argv[]) {
 
   // parse the file to determine UTF8_compliant
   while (in_char_ptr != end_char_ptr) {
-    if (in_char_ptr - in_data  >= READ_SIZE) {
+    if ((uint32_t)in_char_ptr - (uint32_t)in_data  >= READ_SIZE) {
       *in_data = *(in_data + READ_SIZE);
       *(in_data + 1) = *(in_data + READ_SIZE + 1);
       *(in_data + 2) = *(in_data + READ_SIZE + 2);
@@ -2489,8 +2495,9 @@ int main(int argc, char* argv[]) {
     if (cap_encoded)
       num_base_symbols -= 24;
     while (in_char_ptr < end_char_ptr) {
-      if (in_char_ptr - in_data >= READ_SIZE) {
-        if (symbol_ptr - symbol >= MAX_FILE_SIZE - READ_SIZE) {
+      /*--rules may be turning pointer-pointer->signed on "some compilers" :( --*/
+      if ((uint32_t)in_char_ptr - (uint32_t)in_data >= READ_SIZE) {
+        if ((uint32_t)(symbol_ptr - symbol) >= MAX_FILE_SIZE - READ_SIZE) {
           fprintf(stderr,"ERROR - symbol limit of %u symbols exceeded\n",MAX_FILE_SIZE);
           exit(EXIT_FAILURE);
         }
@@ -2555,7 +2562,7 @@ int main(int argc, char* argv[]) {
         fprintf(stderr,"ERROR - symbol limit of %u symbols exceeded\n",MAX_FILE_SIZE);
         exit(EXIT_FAILURE);
       }
-      if (in_char_ptr - in_data  >= READ_SIZE) {
+      if ((uint32_t)in_char_ptr - (uint32_t)in_data  >= READ_SIZE) {
         *in_data = *(in_data + READ_SIZE);
         *(in_data + 1) = *(in_data + READ_SIZE + 1);
         *(in_data + 2) = *(in_data + READ_SIZE + 2);
@@ -2712,7 +2719,7 @@ int main(int argc, char* argv[]) {
     }
     if (max_symbol_count > 0) {
       ranked_symbols_save = ranked_symbols[i1];
-      ranked_symbols[i1] = *max_ranked_symbols_ptr;
+      ranked_symbols[i1] = max_ranked_symbols_ptr != NULL ? *max_ranked_symbols_ptr : 0;
       *max_ranked_symbols_ptr = ranked_symbols_save;
     }
   }
@@ -2882,7 +2889,14 @@ int main(int argc, char* argv[]) {
     double sum_expected_peak = 0.0;
     double sum_actual_peak = 0.0;
     for (i1 = 2 ; i1 <= 15 ; i1++) {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 6297)
+#endif
       sum_expected_peak += (double)(i1 - 1) * (double)mtf_queue_started[i1] * (1.0 - (1.0 / (double)(1 << (i1 - 1))));
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
       sum_actual_peak += (double)(i1 - 1) * (double)mtf_queue_peak[i1];
     }
     double score1, score2;

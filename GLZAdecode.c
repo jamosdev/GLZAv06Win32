@@ -15,32 +15,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ***********************************************************************/
-
+#define SOURCECODE_FILENAME GLZAdecode
 // GLZAdecode.c
 //   Decodes files created by GLZAencode
 //
 // Usage:
 //   GLZAdecode [-t#] <infilename> <outfilename>, where # is 1 or 2 and is the number of threads
 
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <inttypes.h>
-#include <pthread.h>
+#include "threading_and_main.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #define decode
 
-const uint32_t START_UTF8_2BYTE_symbols = 0x80;
-const uint32_t START_UTF8_3BYTE_symbols = 0x800;
-const uint32_t START_UTF8_4BYTE_symbols = 0x10000;
-const uint32_t MAX_INSTANCES_FOR_MTF_QUEUE = 15;
-const uint32_t MTF_QUEUE_SIZE = 64;
-const uint32_t CHARS_TO_WRITE = 0x40000;
-const uint32_t MAX_SYMBOLS_DEFINED = 0x00900000;
-const uint32_t MAX_U32_VALUE = 0xFFFFFFFF;
-const uint16_t FREE_SYMBOL_LIST_SIZE = 0x400;
-const uint8_t FREE_STRING_LIST_SIZE = 0x40;
-const uint8_t FREE_SYMBOL_LIST_WAIT_SIZE = 0x40;
+#define START_UTF8_2BYTE_symbols        0x80
+#define START_UTF8_3BYTE_symbols        0x800
+#define START_UTF8_4BYTE_symbols        0x10000
+#define MAX_INSTANCES_FOR_MTF_QUEUE     15
+#define MTF_QUEUE_SIZE                  64
+#define CHARS_TO_WRITE                  0x40000
+#define MAX_SYMBOLS_DEFINED             0x00900000
+#define MAX_U32_VALUE                   0xFFFFFFFF
+#define FREE_SYMBOL_LIST_SIZE           0x400
+#define FREE_STRING_LIST_SIZE           0x40
+#define FREE_SYMBOL_LIST_WAIT_SIZE      0x40
 
 uint32_t num_symbols_defined, symbol, symbol_number, base_symbol, num_base_symbols, dictionary_size;
 uint32_t out_chars, chars_to_write, symbol_index, symbol_to_move, min_extra_reduce_index;
@@ -428,6 +432,7 @@ void update_mtfg_queue() {
 
 
 void get_mtfg_symbol() {
+    uint32_t a = -1;
   DecodeMtfgQueuePosStart(NOT_CAP);
   if (DecodeMtfgQueuePosCheck0(NOT_CAP)) {
     DecodeMtfgQueuePosFinish0(NOT_CAP);
@@ -571,9 +576,11 @@ void add_dictionary_symbol(uint32_t symbol, uint8_t bits) {
   if (UTF8_compliant && (first_char > 0x80))
     first_char = 0x80;
   if (nsob[first_char][bits] == ((uint32_t)1 << sym_list_bits[first_char][bits])) {
+      void* newmem;
     sym_list_bits[first_char][bits]++;
-    if (0 == (sym_list_ptrs[first_char][bits]
-        = (uint32_t *)realloc(sym_list_ptrs[first_char][bits], sizeof(uint32_t) * (1 << sym_list_bits[first_char][bits])))) {
+    /*MSVC:'realloc' might return null pointer: assigning null pointer to 'sym_list_ptrs[first_char][bits]', which is passed as an argument to 'realloc', will cause the original memory block to be leaked.*/
+    newmem = realloc(sym_list_ptrs[first_char][bits], sizeof(uint32_t) * (1 << sym_list_bits[first_char][bits]));
+    if (0 == (sym_list_ptrs[first_char][bits] = (uint32_t *)newmem)) {
       fprintf(stderr,"FATAL ERROR - symbol list realloc failure\n");
       exit(EXIT_FAILURE);
     }
@@ -1219,6 +1226,8 @@ void delta_transform(uint8_t * buffer, uint32_t len) {
 
 
 void increase_dictionary_size() {
+    /*MSVC:'realloc' might return null pointer: assigning null pointer to 'symbol_strings', which is passed as an argument to 'realloc', will cause the original memory block to be leaked.*/
+    void* newmem;
   dictionary_size <<= 1;
   if (two_threads != 0) {
     if (symbol_buffer_write_index < 0x100)
@@ -1226,7 +1235,8 @@ void increase_dictionary_size() {
     else
       while (atomic_load_explicit(&symbol_buffer_pt1_owner, memory_order_acquire) != 0);
   }
-  if ((symbol_strings = (uint8_t *)realloc(symbol_strings, dictionary_size)) == 0) {
+  newmem = realloc(symbol_strings, dictionary_size);
+  if ((symbol_strings = (uint8_t *)newmem) == 0) {
     fprintf(stderr,"FATAL ERROR - dictionary realloc failure\n");
     exit(EXIT_FAILURE);
   }
@@ -2356,7 +2366,7 @@ void *write_output_thread(void *arg) {
 }
 
 
-void print_usage() {
+static void print_usage() {
   fprintf(stderr,"ERROR - Invalid format - Use GLZAdecode [-t#] <infile> <outfile>\n");
   fprintf(stderr," where -t specifies the number of threads.  Valid values are 1 and 2 (default).\n");
   return;
@@ -2365,7 +2375,7 @@ void print_usage() {
 
 int main(int argc, char* argv[]) {
   uint8_t arg_num, num_inst_codes, i1, i2;
-  pthread_t output_thread;
+  pthread_t output_thread= PTHREAD_NULL;
 
   clock_t start_time = clock();
 
@@ -2715,7 +2725,9 @@ finish_decode:
   } while (i1--);
   fclose(fd_in);
   if (two_threads) {
-    pthread_join(output_thread,NULL);
+      if (output_thread != PTHREAD_NULL) {
+          pthread_join(output_thread, NULL);
+      }
   }
   else {
     write_single_threaded_output();

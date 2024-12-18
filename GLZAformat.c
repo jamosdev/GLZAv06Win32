@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ***********************************************************************/
-
+#define SOURCECODE_FILENAME GLZAformat
 // GLZAformat.c
 //   Adds 0xFF after all 0xFE and 0xFF bytes to support compressions insert and define symbols.
 //   Replaces 'A' - 'Z' with 'C' followed by the corresponding lower case letter or
@@ -30,12 +30,16 @@ limitations under the License.
 //       -d0 disables delta encoding
 //       -l0 disables capital lock encoding
 
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include "threading_and_main.h"
 
 const uint32_t CHARS_TO_WRITE = 0x40000;
 uint8_t * in_char;
@@ -76,7 +80,7 @@ double calculate_order_1_entropy(uint32_t symbol_counts[0x100], uint32_t order_1
 }
 
 
-void print_usage() {
+static void print_usage() {
   fprintf(stderr,"ERROR - Invalid format - Use GLZAformat [-c#] [-d#] [-l#] <infile> <outfile>\n");
   fprintf(stderr," where -c0 disables capital encoding\n");
   fprintf(stderr,"       -c1 forces capital encoding\n");
@@ -85,7 +89,9 @@ void print_usage() {
   return;
 }
 
-
+/*--too much stack usage--*/
+uint32_t order_1_counts[0x100][0x100];
+uint32_t symbol_counts[0x100];
 int main(int argc, char* argv[])
 {
   FILE *fd_in, *fd_out;
@@ -93,8 +99,6 @@ int main(int argc, char* argv[])
   uint8_t *in_char_ptr, *end_char_ptr, *out_char_ptr;
   uint32_t num_in_char, num_out_char, i, j, k;
   uint32_t num_AZ, num_az_pre_AZ, num_az_post_AZ, num_spaces;
-  uint32_t order_1_counts[0x100][0x100];
-  uint32_t symbol_counts[0x100];
   int32_t arg_num;
   double order_1_entropy, best_stride_entropy, saved_entropy[4];
   clock_t start_time;
@@ -211,7 +215,7 @@ int main(int argc, char* argv[])
           *out_char_ptr++ = *in_char_ptr++ + ('a' - 'A');
           while ((*in_char_ptr >= 'A') && (*in_char_ptr <= 'Z')) {
             *out_char_ptr++ = *in_char_ptr++ + ('a' - 'A');
-            if (out_char_ptr - out_char_buffer >= CHARS_TO_WRITE) {
+            if ((uint32_t)(out_char_ptr - out_char_buffer) >= CHARS_TO_WRITE) {
               fwrite(out_char_buffer, 1, out_char_ptr - out_char_buffer, fd_out);
               num_out_char += out_char_ptr - out_char_buffer;
               out_char_ptr = out_char_buffer;
@@ -238,7 +242,7 @@ int main(int argc, char* argv[])
       else
         *out_char_ptr++ = *in_char_ptr++;
 
-      if (out_char_ptr - out_char_buffer >= CHARS_TO_WRITE) {
+      if ((uint32_t)(out_char_ptr - out_char_buffer) >= CHARS_TO_WRITE) {
         fwrite(out_char_buffer, 1, out_char_ptr - out_char_buffer, fd_out);
         num_out_char += out_char_ptr - out_char_buffer;
         out_char_ptr = out_char_buffer;
@@ -1138,7 +1142,7 @@ int main(int argc, char* argv[])
         else
           *out_char_ptr++ = *in_char_ptr++;
 
-        if (out_char_ptr - out_char_buffer >= CHARS_TO_WRITE) {
+        if ((uint32_t)(out_char_ptr - out_char_buffer) >= CHARS_TO_WRITE) {
           fwrite(out_char_buffer, 1, out_char_ptr - out_char_buffer, fd_out);
           num_out_char += out_char_ptr - out_char_buffer;
           out_char_ptr = out_char_buffer;
@@ -1156,7 +1160,7 @@ int main(int argc, char* argv[])
         else
           *out_char_ptr++ = *in_char_ptr++;
 
-        if (out_char_ptr - out_char_buffer >= CHARS_TO_WRITE) {
+        if ((uint32_t)(out_char_ptr - out_char_buffer) >= CHARS_TO_WRITE) {
           fwrite(out_char_buffer, 1, out_char_ptr - out_char_buffer, fd_out);
           num_out_char += out_char_ptr - out_char_buffer;
           out_char_ptr = out_char_buffer;
@@ -1177,7 +1181,7 @@ int main(int argc, char* argv[])
       else
         *out_char_ptr++ = *in_char_ptr++;
 
-      if (out_char_ptr - out_char_buffer >= CHARS_TO_WRITE) {
+      if ((uint32_t)(out_char_ptr - out_char_buffer) >= CHARS_TO_WRITE) {
         fwrite(out_char_buffer, 1, out_char_ptr - out_char_buffer, fd_out);
         num_out_char += out_char_ptr - out_char_buffer;
         out_char_ptr = out_char_buffer;

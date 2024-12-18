@@ -16,6 +16,7 @@ limitations under the License.
 
 ***********************************************************************/
 
+
 enum { TOP = 1 << 24, BUF_SIZE = 0x40000 };
 enum { UP_FREQ_SYM_TYPE = 1, FREQ_SYM_TYPE_BOT = 0x4000 };
 enum { UP_FREQ_MTF_QUEUE_NUM2 = 4, UP_FREQ_MTF_QUEUE_NUM = 10, FREQ_MTF_QUEUE_NUM_BOT = 0x100 };
@@ -47,7 +48,7 @@ uint16_t DictionaryBins, BinNum;
 FILE * InFile, * OutFile;
 
 
-void StartModelSymType() {
+static void StartModelSymType(void) {
   uint8_t i = 3;
   do {
     if (use_mtf) {
@@ -73,7 +74,7 @@ void StartModelSymType() {
   } while (i--);
   return;
 }
-void StartModelMtfQueueNum() {
+static void StartModelMtfQueueNum(void) {
   uint8_t i = 1;
   do {
     uint8_t j = 13;
@@ -84,7 +85,7 @@ void StartModelMtfQueueNum() {
   } while (i--);
   return;
 }
-void StartModelMtfQueuePos() {
+static void StartModelMtfQueuePos(void) {
   uint8_t i = 1;
   do {
     uint8_t j = 13;
@@ -99,7 +100,7 @@ void StartModelMtfQueuePos() {
   } while (i--);
   return;
 }
-void StartModelMtfgQueuePos(uint8_t max_regular_code_length) {
+static void StartModelMtfgQueuePos(uint8_t max_regular_code_length) {
   uint32_t max_value;
   if (max_regular_code_length >= 17)
     max_value = 0x100;
@@ -126,7 +127,7 @@ void StartModelMtfgQueuePos(uint8_t max_regular_code_length) {
   } while (i--);
   return;
 }
-void StartModelSID() {
+static void StartModelSID(void) {
   uint8_t i = 1;
   do {
     uint8_t j = 15;
@@ -137,7 +138,7 @@ void StartModelSID() {
   } while (i--);
   return;
 }
-void StartModelINST(uint8_t num_inst_codes) {
+static void StartModelINST(uint8_t num_inst_codes) {
   uint8_t i = 1;
   do {
     uint8_t j = 15;
@@ -151,7 +152,7 @@ void StartModelINST(uint8_t num_inst_codes) {
   } while (i--);
   return;
 }
-void StartModelERG() {
+static void StartModelERG(void) {
   FreqERG[0] = 1;
   RangeScaleERG[0] = 2;
   FreqERG[1] = 1;
@@ -160,12 +161,12 @@ void StartModelERG() {
   RangeScaleERG[2] = 2;
   return;
 }
-void StartModelWordTag() {
+static void StartModelWordTag() {
   FreqWordTag = 1;
   RangeScaleWordTag = 2;
   return;
 }
-void StartModelFirstChar() {
+static void StartModelFirstChar() {
   uint8_t i = 0xFF;
   do {
     uint8_t j = 0xFF;
@@ -182,7 +183,7 @@ void StartModelFirstChar() {
   } while (i--);
   return;
 }
-void StartModelFirstCharBinary() {
+static void StartModelFirstCharBinary() {
   uint8_t i = 0xFF;
   do {
     uint8_t j = 0xFF;
@@ -197,7 +198,7 @@ void StartModelFirstCharBinary() {
   } while (i--);
   return;
 }
-void rescaleMtfQueueNum(uint8_t Context) {
+static void rescaleMtfQueueNum(uint8_t Context) {
   uint8_t i = 12;
   RangeScaleMtfQueueNum[Context] = FreqMtfQueueNum[Context][13] = (FreqMtfQueueNum[Context][13] + 4) >> 1;
   do {
@@ -205,7 +206,7 @@ void rescaleMtfQueueNum(uint8_t Context) {
   } while (i--);
   return;
 }
-void rescaleMtfQueuePos(uint8_t Context, uint8_t mtf_queue_number) {
+static void rescaleMtfQueuePos(uint8_t Context, uint8_t mtf_queue_number) {
   uint8_t i = 62;
   RangeScaleMtfQueuePos[Context][mtf_queue_number] = FreqMtfQueuePos[Context][mtf_queue_number][63]
       = (FreqMtfQueuePos[Context][mtf_queue_number][63] + 1) >> 1;
@@ -215,7 +216,7 @@ void rescaleMtfQueuePos(uint8_t Context, uint8_t mtf_queue_number) {
   } while (i--);
   return;
 }
-void rescaleMtfQueuePosQ0(uint8_t Context) {
+static void rescaleMtfQueuePosQ0(uint8_t Context) {
   uint8_t i = 62;
   RangeScaleMtfQueuePos[Context][0] = (FreqMtfQueuePos[Context][0][63]
       = (FreqMtfQueuePos[Context][0][63] + 1) >> 1);
@@ -225,7 +226,7 @@ void rescaleMtfQueuePosQ0(uint8_t Context) {
   } while (i--);
   return;
 }
-void rescaleMtfgQueuePos(uint8_t Context) {
+static void rescaleMtfgQueuePos(uint8_t Context) {
   uint8_t i = 1;
   RangeScaleMtfgQueuePos[Context] = FreqMtfgQueuePos[Context][0] = (FreqMtfgQueuePos[Context][0] + 1) >> 1;
   do {
@@ -233,7 +234,7 @@ void rescaleMtfgQueuePos(uint8_t Context) {
   } while (++i);
   return;
 }
-void rescaleSID(uint8_t Context) {
+static void rescaleSID(uint8_t Context) {
   uint8_t i = 14;
   RangeScaleSID[Context] = FreqSID[Context][15] = (FreqSID[Context][15] + 1) >> 1;
   do {
@@ -241,7 +242,7 @@ void rescaleSID(uint8_t Context) {
   } while (i--);
   return;
 }
-void rescaleINST(uint8_t Context) {
+static void rescaleINST(uint8_t Context) {
   uint8_t i = 34;
   RangeScaleINST[Context][SIDSymbol] = (FreqINST[Context][SIDSymbol][35] = (FreqINST[Context][SIDSymbol][35] + 1) >> 1);
   do {
@@ -249,7 +250,7 @@ void rescaleINST(uint8_t Context) {
   } while (i--);
   return;
 }
-void rescaleINST1(uint8_t Context) {
+static void rescaleINST1(uint8_t Context) {
   uint8_t i = 34;
   RangeScaleINST[Context][0] = (FreqINST[Context][0][35] = (FreqINST[Context][0][35] + 1) >> 1);
   do {
@@ -257,7 +258,7 @@ void rescaleINST1(uint8_t Context) {
   } while (i--);
   return;
 }
-void rescaleFirstChar(uint8_t SymType, uint8_t Context) {
+static void rescaleFirstChar(uint8_t SymType, uint8_t Context) {
   uint8_t i = 0xFE;
   RangeScaleFirstChar[SymType][Context] = FreqFirstChar[SymType][Context][0xFF]
       = (FreqFirstChar[SymType][Context][0xFF] + 1) >> 1;
@@ -267,7 +268,7 @@ void rescaleFirstChar(uint8_t SymType, uint8_t Context) {
   } while (i--);
   return;
 }
-void rescaleFirstCharBinary(uint8_t Context) {
+static void rescaleFirstCharBinary(uint8_t Context) {
   RangeScaleFirstChar[0][Context] = FreqFirstCharBinary[Context][0] = (FreqFirstCharBinary[Context][0] + 1) >> 1;
   uint8_t i = 1;
   do {
@@ -304,14 +305,14 @@ void rescaleFirstCharBinary(uint8_t Context) {
   } while (++i);
   return;
 }
-void InitSymbolFirstChar(uint8_t trailing_char, uint8_t leading_char) {
+static void InitSymbolFirstChar(uint8_t trailing_char, uint8_t leading_char) {
   SymbolFirstChar[0][trailing_char][leading_char] = leading_char;
   SymbolFirstChar[1][trailing_char][leading_char] = leading_char;
   SymbolFirstChar[2][trailing_char][leading_char] = leading_char;
   SymbolFirstChar[3][trailing_char][leading_char] = leading_char;
   return;
 }
-void InitFreqFirstChar(uint8_t trailing_char, uint8_t leading_char) {
+static void InitFreqFirstChar(uint8_t trailing_char, uint8_t leading_char) {
   FreqFirstChar[0][trailing_char][leading_char] = 1;
   FreqFirstChar[1][trailing_char][leading_char] = 1;
   FreqFirstChar[2][trailing_char][leading_char] = 1;
@@ -322,7 +323,7 @@ void InitFreqFirstChar(uint8_t trailing_char, uint8_t leading_char) {
   RangeScaleFirstChar[3][trailing_char]++;
   return;
 }
-void InitFirstCharBin(uint8_t trailing_char, uint8_t leading_char, uint8_t code_length) {
+static void InitFirstCharBin(uint8_t trailing_char, uint8_t leading_char, uint8_t code_length) {
   if (RangeScaleFirstChar[0][trailing_char]
       || ((trailing_char == 'C') && (cap_symbol_defined || cap_lock_symbol_defined))) {
     uint8_t j2 = leading_char;
@@ -380,7 +381,7 @@ void InitFirstCharBin(uint8_t trailing_char, uint8_t leading_char, uint8_t code_
   }
   return;
 }
-void InitFirstCharBinBinary(uint8_t trailing_char, uint8_t leading_char, uint8_t code_length) {
+static void InitFirstCharBinBinary(uint8_t trailing_char, uint8_t leading_char, uint8_t code_length) {
   if (RangeScaleFirstChar[0][trailing_char]) {
     if (code_length < 8) {
       FreqFirstCharBinary[trailing_char][leading_char] = 1 << (8 - code_length);
@@ -429,7 +430,7 @@ void InitFirstCharBinBinary(uint8_t trailing_char, uint8_t leading_char, uint8_t
   }
   return;
 }
-void InitTrailingCharBin(uint8_t trailing_char, uint8_t leading_char, uint8_t code_length) {
+static void InitTrailingCharBin(uint8_t trailing_char, uint8_t leading_char, uint8_t code_length) {
   if (code_length < 8) {
     uint16_t init_freq = 1 << (8 - code_length);
     FreqFirstChar[0][trailing_char][leading_char] = init_freq;
@@ -446,7 +447,7 @@ void InitTrailingCharBin(uint8_t trailing_char, uint8_t leading_char, uint8_t co
   }
   return;
 }
-void InitTrailingCharBinary(uint32_t trailing_char) {
+static void InitTrailingCharBinary(uint32_t trailing_char) {
   uint8_t leading_char = 0xFF;
   do {
     uint16_t init_freq;
@@ -478,7 +479,7 @@ void InitTrailingCharBinary(uint32_t trailing_char) {
   } while (leading_char-- != 0);
   return;
 }
-void InitBaseSymbolCap(uint8_t BaseSymbol, uint8_t max_symbol, uint8_t new_symbol_code_length) {
+static void InitBaseSymbolCap(uint8_t BaseSymbol, uint8_t max_symbol, uint8_t new_symbol_code_length) {
   uint8_t j1 = max_symbol;
   do {
     InitFirstCharBin(j1, BaseSymbol, new_symbol_code_length);
@@ -530,7 +531,8 @@ void WriteByte(uint8_t Value, FILE * OutFile) {
   return;
 }
 void NormalizeEncoder(uint32_t bot) {
-  while ((low ^ (low + range)) < TOP || (range < (bot) && ((range = -low & ((bot) - 1)), 1))) {
+    /* -low ->  (UINT32_MAX-low+1) */
+  while ((low ^ (low + range)) < TOP || (range < (bot) && ((range = (UINT32_MAX - low + 1) & ((bot) - 1)), 1))) {
     WriteByte((uint8_t)(low >> 24), OutFile);
     range <<= 8;
     low <<= 8;
@@ -1001,8 +1003,9 @@ void FinishEncoder() {
     InCharNum = 1;                                \
   }                                               \
 }
+/* -low -> (UINT32_MAX-low+1) MSVC:unary minus operator applied to unsigned type, result still unsigned */
 #define NormalizeDecoder(bot) {                                                                  \
-  while ((low ^ (low + range)) < TOP || (range < (bot) && ((range = -low & ((bot) - 1)), 1))) {  \
+  while ((low ^ (low + range)) < TOP || (range < (bot) && ((range = (UINT32_MAX-low+1) & ((bot) - 1)), 1))) {  \
     ReadByte(InFile);                                                                            \
     code = (code << 8) | Symbol;                                                                 \
     low <<= 8;                                                                                   \

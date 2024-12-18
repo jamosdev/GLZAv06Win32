@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ***********************************************************************/
-
+#define SOURCECODE_FILENAME GLZAcompress
 // GLZAcompress.c
 //   Iteratively does the following until there are no symbols worth generating:
 //     1. Counts the symbol occurances in the input data and calculates the log base 2 of each symbol's probability of occuring
@@ -31,14 +31,19 @@ limitations under the License.
 //       -r# sets the approximate RAM usage in millions of bytes
 //       -w0 disables the first cycle word only search
 
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <inttypes.h>
 #include <math.h>
-#include <pthread.h>
+#include "threading_and_main.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
+/*
 const uint8_t INSERT_SYMBOL_CHAR = 0xFE;
 const uint8_t DEFINE_SYMBOL_CHAR = 0xFF;
 const uint32_t START_MY_SYMBOLS = 0x00080000;
@@ -50,6 +55,18 @@ const uint32_t NUM_PRECALCULATED_INSTANCE_LOGS = 10000;
 const uint32_t NUM_PRECALCULATED_MATCH_RATIO_LOGS = 2000;
 const uint32_t MAX_SCORES = 30000;
 const uint32_t MAX_SYMBOLS_DEFINED = 0x00900000;
+*/
+#define INSERT_SYMBOL_CHAR                      0xFE
+#define DEFINE_SYMBOL_CHAR                      0xFF
+#define START_MY_SYMBOLS                        0x00080000
+#define MAX_WRITE_SIZE                          0x200000
+#define MAX_PRIOR_MATCHES                       20
+#define MAX_STRING_LENGTH                       8000
+#define BASE_NODES_CHILD_ARRAY_SIZE             16
+#define NUM_PRECALCULATED_INSTANCE_LOGS         10000
+#define NUM_PRECALCULATED_MATCH_RATIO_LOGS      2000
+#define MAX_SCORES                              30000
+#define MAX_SYMBOLS_DEFINED                     0x00900000
 
 static struct string_node {
   uint32_t symbol;
@@ -1109,7 +1126,8 @@ thread_overlap_check_loop_match:
   if ((int)this_symbol < 0)
     goto thread_overlap_check_loop_no_match;
   match_node_ptr = match_node_ptr->child_ptr;
-  if (this_symbol != match_node_ptr->symbol) {
+  /*--MSVC:Dereferencing NULL pointer. 'match_node_ptr' contains the same NULL value as 'match_node_ptr->child_ptr' did. --*/
+  if (match_node_ptr!=NULL && this_symbol != match_node_ptr->symbol) {
     uint32_t shifted_symbol = this_symbol;
     do {
       if (match_node_ptr->sibling_node_num[shifted_symbol & 0xF] != 0) {
@@ -1130,16 +1148,16 @@ thread_overlap_check_loop_match:
       }
     } while (this_symbol != match_node_ptr->symbol);
   }
-  if (match_node_ptr->child_ptr)
+  if (match_node_ptr!=NULL&&match_node_ptr->child_ptr)
     goto thread_overlap_check_loop_match;
 
   // no child, so found a match - check for overlaps
   uint32_t i1;
   uint8_t found_same_score_prior_match = 0;
-  uint32_t node_score_number = match_node_ptr->score_number;
+  uint32_t node_score_number = match_node_ptr!=NULL?match_node_ptr->score_number:0;
   uint32_t prior_match_number = 0;
   while (prior_match_number < num_prior_matches) {
-    if (in_symbol_ptr - match_node_ptr->num_symbols > prior_match_end_ptr[prior_match_number]) {
+    if (match_node_ptr!=NULL&&in_symbol_ptr - match_node_ptr->num_symbols > prior_match_end_ptr[prior_match_number]) {
       num_prior_matches--;
       for (i1 = prior_match_number ; i1 < num_prior_matches ; i1++) {
         prior_match_end_ptr[i1] = prior_match_end_ptr[i1+1];
@@ -1156,7 +1174,7 @@ thread_overlap_check_loop_match:
       prior_match_number++;
     }
   }
-  match_node_ptr = match_node_ptr->hit_ptr;
+  match_node_ptr = match_node_ptr!=NULL?match_node_ptr->hit_ptr:NULL;
   if (found_same_score_prior_match == 0) {
     prior_match_end_ptr[num_prior_matches] = in_symbol_ptr - 1;
     prior_match_score_number[num_prior_matches++] = node_score_number;
@@ -1451,7 +1469,7 @@ void *substitute_thread(void *arg) {
 }
 
 
-void print_usage() {
+static void print_usage() {
   fprintf(stderr,"Invalid format - Use GLZAcompress [-c#] [-p#] [-r#] [-w0] <infile> <outfile>\n");
   fprintf(stderr," where -c# sets the grammar production cost in bits\n");
   fprintf(stderr,"       -p# sets the profit power ratio.  0.0 is most compressive, larger\n");
@@ -1549,7 +1567,11 @@ int main(int argc, char* argv[]) {
     available_RAM = (uint64_t)(RAM_usage * 1000000.0);
     if (available_RAM > max_memory_usage)
       available_RAM = max_memory_usage;
-    start_symbol_ptr = (uint32_t *)malloc(available_RAM);
+    if (available_RAM > MAXSIZE_T) {
+        fprintf(stderr, "We want to allocate %llu but that cannot fit within the address space!\n", available_RAM);
+        exit(EXIT_FAILURE);
+    }
+    start_symbol_ptr = (uint32_t *)malloc((size_t)available_RAM);
     if (start_symbol_ptr == 0) {
       fprintf(stderr,"ERROR - Insufficient RAM to compress - unable to allocate %Iu bytes\n",
           (size_t)((available_RAM * 10) / 9));
@@ -1565,10 +1587,20 @@ int main(int argc, char* argv[]) {
     available_RAM = (uint64_t)((double)in_size * 250.0 + 60000000.0);
     if (available_RAM > max_memory_usage)
     available_RAM = max_memory_usage;
-    if (available_RAM > 3000000000.0 + 8.0 * (double)in_size)
-      available_RAM = 3000000000.0 + 8.0 * (double)in_size;
+    if (available_RAM > 3000000000.0 + 8.0 * (double)in_size) {
+        double requested = 3000000000.0 + 8.0 * (double)in_size;
+        if (requested > MAXUINT64) {
+            fprintf(stderr, "Requested memory %f is too big for even 64bit\n", requested);
+            exit(EXIT_FAILURE);
+        }
+        available_RAM = (uint64_t)requested;
+    }
     do {
-      start_symbol_ptr = (uint32_t *)malloc(available_RAM);
+        if (available_RAM > MAXSIZE_T) {
+            fprintf(stderr, "available_RAM %llu too big\n", available_RAM);
+            exit(EXIT_FAILURE);
+        }
+      start_symbol_ptr = (uint32_t *)malloc((size_t)available_RAM);
       if (start_symbol_ptr)
         break;
       available_RAM = (available_RAM / 10) * 9;
@@ -1625,7 +1657,7 @@ int main(int argc, char* argv[]) {
           in_char_ptr += 2;
       }
       else if (*in_char_ptr < 0xF0) {
-        if ((*(in_char_ptr+1) < 0x80) || (*(in_char_ptr+1) >= 0xC0) || (*(in_char_ptr+2) >= 0xC0) || (*(in_char_ptr+2) >= 0xC0)) {
+        if ((*(in_char_ptr+1) < 0x80) || (*(in_char_ptr+1) >= 0xC0) || (*(in_char_ptr + 2) < 0x80)/*(*(in_char_ptr + 2) >= 0xC0)*/ || (*(in_char_ptr + 2) >= 0xC0)) {
           UTF8_compliant = 0;
           break;
         }
@@ -1862,16 +1894,16 @@ int main(int argc, char* argv[]) {
         / sizeof(struct string_node));
 
     if (1.0 - prior_cycle_end_ratio < prior_cycle_end_ratio - prior_cycle_start_ratio) {
-      if ((prior_cycle_start_ratio == 0.0) && (prior_cycle_end_ratio < 0.999)) {
-        prior_cycle_start_ratio = 1.0 - 0.99 * prior_cycle_end_ratio;
+      if ((prior_cycle_start_ratio == 0.0f) && (prior_cycle_end_ratio < 0.999f)) {
+        prior_cycle_start_ratio = 1.0f - 0.99f * prior_cycle_end_ratio;
         in_symbol_ptr = start_symbol_ptr + (uint32_t)(prior_cycle_start_ratio * (float)(end_symbol_ptr - start_symbol_ptr));
       }
-      else if ((1.0 - prior_cycle_end_ratio) * 1.5 < prior_cycle_end_ratio - prior_cycle_start_ratio) {
-        prior_cycle_start_ratio = 0.0;
+      else if ((1.0f - prior_cycle_end_ratio) * 1.5f < prior_cycle_end_ratio - prior_cycle_start_ratio) {
+        prior_cycle_start_ratio = 0.0f;
         in_symbol_ptr = start_symbol_ptr;
       }
       else {
-        prior_cycle_start_ratio = 1.0 - 0.97 * (prior_cycle_end_ratio - prior_cycle_start_ratio);
+        prior_cycle_start_ratio = 1.0f - 0.97f * (prior_cycle_end_ratio - prior_cycle_start_ratio);
         in_symbol_ptr = start_symbol_ptr + (uint32_t)(prior_cycle_start_ratio * (float)(end_symbol_ptr - start_symbol_ptr));
       }
     }
@@ -2037,8 +2069,11 @@ int main(int argc, char* argv[]) {
     lcp_thread_data[5].string_nodes_limit = string_node_num_limit;
 
     atomic_store_explicit(&max_symbol_ptr, 0, memory_order_release);
-    atomic_store_explicit(&scan_symbol_ptr, in_symbol_ptr, memory_order_release);
-
+    {
+        atomic_uintptr_t isp = (atomic_uintptr_t)in_symbol_ptr;
+        atomic_store_explicit(&scan_symbol_ptr, isp, memory_order_release);
+        in_symbol_ptr = (uint32_t*)isp;
+    }
     pthread_create(&build_lcp_thread1,NULL,build_lcp_thread,(char *)&lcp_thread_data[0]);
     pthread_create(&build_lcp_thread2,NULL,build_lcp_thread,(char *)&lcp_thread_data[1]);
     pthread_create(&build_lcp_thread3,NULL,build_lcp_thread,(char *)&lcp_thread_data[2]);
@@ -2051,7 +2086,11 @@ int main(int argc, char* argv[]) {
         this_symbol = *in_symbol_ptr++;
         while ((int)this_symbol >= 0) {
           if (this_symbol <= main_max_symbol) {
-            atomic_store_explicit(&scan_symbol_ptr, in_symbol_ptr, memory_order_relaxed);
+              {
+                  atomic_uintptr_t isp = (atomic_uintptr_t)in_symbol_ptr;
+                  atomic_store_explicit(&scan_symbol_ptr, isp, memory_order_relaxed);
+                  in_symbol_ptr = (uint32_t*)isp;
+              }
             add_suffix(this_symbol, in_symbol_ptr, &next_string_node_num);
             if (next_string_node_num < main_string_nodes_limit)
               this_symbol = *in_symbol_ptr++;
@@ -2072,7 +2111,11 @@ int main(int argc, char* argv[]) {
         this_symbol = *in_symbol_ptr++;
         while ((int)this_symbol >= 0) {
           if (this_symbol <= main_max_symbol) {
-            atomic_store_explicit(&scan_symbol_ptr, in_symbol_ptr, memory_order_relaxed);
+              {
+                  atomic_uintptr_t isp = (atomic_uintptr_t)in_symbol_ptr;
+                  atomic_store_explicit(&scan_symbol_ptr, isp, memory_order_relaxed);
+                  in_symbol_ptr = (uint32_t*)isp;
+              }
             if ((next_string_node_num & 0xFFFF) == 0)
               fprintf(stderr,"Main processed %u of %u symbols \r",
                   (uint32_t)(in_symbol_ptr-1-cycle_start_ptr),(uint32_t)(end_symbol_ptr-start_symbol_ptr));
@@ -2093,8 +2136,12 @@ int main(int argc, char* argv[]) {
     }
 
 done_building_lcp_tree:
-    atomic_store_explicit(&scan_symbol_ptr, in_symbol_ptr, memory_order_release);
-    atomic_store_explicit(&max_symbol_ptr, in_symbol_ptr, memory_order_release);
+    {
+        atomic_uintptr_t isp = (atomic_uintptr_t)in_symbol_ptr;
+        atomic_store_explicit(&scan_symbol_ptr, isp, memory_order_release);
+        atomic_store_explicit(&max_symbol_ptr, isp, memory_order_release);
+        in_symbol_ptr = (uint32_t*)isp;
+    }
 
     node_ptrs_num = 0;
     atomic_store_explicit(&rank_scores_write_index, node_ptrs_num, memory_order_release);
@@ -2200,9 +2247,9 @@ jump_loc:
       match_nodes[0].child_ptr = 0;
 
       if ((scan_cycle == 1) && cap_encoded) {
-        float min_score = 0.0000005 * order_0_entropy;
-        if (min_score < 100.0)
-          min_score = 100.0;
+        float min_score = 0.0000005f * (float)order_0_entropy;
+        if (min_score < 100.0f)
+          min_score = 100.0f;
         for (i1 = 0 ; i1 < num_candidates ; i1++)
           if (candidates[candidates_index[i1]].score < min_score) {
             num_candidates = i1;
