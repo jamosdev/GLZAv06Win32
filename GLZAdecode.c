@@ -2384,7 +2384,8 @@ int main(int argc, char* argv[]) {
     print_usage();
     exit(EXIT_FAILURE);
   }
-  two_threads = 1;
+  /*--on MSVC2022 I get divide by zero error with this set to =1 as originally was--*/
+  two_threads = 0;
   if (*argv[1] ==  '-') {
     two_threads = *(argv[1]+2) - '1';
     if ((*(argv[1]+1) != 't') || (two_threads > 1)) {

@@ -30,7 +30,9 @@ glza decode FILENAME.glze FILENAME.glzd");
 #define HASH_OF_compress 441277867
 #define HASH_OF_encode  -1776495675
 #define HASH_OF_decode  -1901935675
+//#include <stdlib.h>
 int main(int argc,char**argv){
+   // system("cd");
     if(argc < 2) {
         usage();
         return -__LINE__;
