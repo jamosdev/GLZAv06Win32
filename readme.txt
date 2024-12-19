@@ -2,7 +2,8 @@
 It seems there is newer: https://github.com/Intensity/GLZA   damn. Oh well
 too bad. Also the decode is single threaded now to fix the divide by zero
 that was happening on decode.
-
+Also there was some bug where it was testing if it is in unicode range and
+the test on prev1 was wrong compared to the equivelant on prev2.
 /***********************************************************************
 
 Copyright 2014-2016 Kennon Conrad
