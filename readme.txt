@@ -1,5 +1,7 @@
 2024 jamosdev:
-It seems there is newer: https://github.com/Intensity/GLZA   damn. Oh well too bad. Also the decode is single threaded now to fix the divide by zero that was happening on decode.
+It seems there is newer: https://github.com/Intensity/GLZA   damn. Oh well
+too bad. Also the decode is single threaded now to fix the divide by zero
+that was happening on decode.
 
 /***********************************************************************
 
