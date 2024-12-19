@@ -41,12 +41,12 @@ limitations under the License.
 #include <time.h>
 #include "threading_and_main.h"
 
-const uint32_t CHARS_TO_WRITE = 0x40000;
-uint8_t * in_char;
-uint8_t out_char_buffer[0x40010];
+static const uint32_t CHARS_TO_WRITE = 0x40000;
+static uint8_t * in_char;
+static uint8_t out_char_buffer[0x40010];
 
 
-void clear_counts(uint32_t symbol_counts[0x100], uint32_t order_1_counts[0x100][0x100]) {
+static void clear_counts(uint32_t symbol_counts[0x100], uint32_t order_1_counts[0x100][0x100]) {
   uint8_t i = 0xFF;
   do {
     symbol_counts[i] = 0;
@@ -59,7 +59,7 @@ void clear_counts(uint32_t symbol_counts[0x100], uint32_t order_1_counts[0x100][
 }
 
 
-double calculate_order_1_entropy(uint32_t symbol_counts[0x100], uint32_t order_1_counts[0x100][0x100]) {
+static double calculate_order_1_entropy(uint32_t symbol_counts[0x100], uint32_t order_1_counts[0x100][0x100]) {
   uint16_t i, j;
   uint16_t num_symbols = 0;
   double entropy = 0.0;
@@ -90,8 +90,8 @@ static void print_usage() {
 }
 
 /*--too much stack usage--*/
-uint32_t order_1_counts[0x100][0x100];
-uint32_t symbol_counts[0x100];
+static uint32_t order_1_counts[0x100][0x100];
+static uint32_t symbol_counts[0x100];
 int main(int argc, char* argv[])
 {
   FILE *fd_in, *fd_out;
@@ -104,7 +104,10 @@ int main(int argc, char* argv[])
   clock_t start_time;
 
   // format byte: B0: cap encoded, B3:B1 = stride (0 - 4), B5:B4 = log2 delta length (0 - 2), B6: little endian
-
+  if(argc != 3) {
+    print_usage();
+    return EXIT_FAILURE;
+  }
 
   start_time = clock();
 

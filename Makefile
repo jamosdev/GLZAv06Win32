@@ -1,4 +1,4 @@
-CFLAGS=/DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11
+CFLAGS=/I. /DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11
 CC=cl
 SRC=GLZAcompress.c\
 GLZAdecode.c\
@@ -21,15 +21,15 @@ clean:
 	-$(RM) glzafrmt.obj
 	-$(RM) glzamain.obj
 glzacomp.obj:GLZAcompress.c $(HEADERS)
-	cl /DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11 /c GLZAcompress.c /Fo$@
+	cl /I. /DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11 /c GLZAcompress.c /Fo$@
 glzadeco.obj:GLZAdecode.c $(HEADERS)
-	cl /DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11 /c GLZAdecode.c /Fo$@
+	cl /I. /DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11 /c GLZAdecode.c /Fo$@
 glzaenco.obj:GLZAencode.c $(HEADERS)
-	cl /DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11 /c GLZAencode.c /Fo$@
+	cl /I. /DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11 /c GLZAencode.c /Fo$@
 glzafrmt.obj:GLZAformat.c $(HEADERS)
-	cl /DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11 /c GLZAformat.c /Fo$@
+	cl /I. /DBUILD_COMBINED_EXE /experimental:c11atomics /std:c11 /c GLZAformat.c /Fo$@
 glzamain.obj:glzamain.c
-	cl /experimental:c11atomics /std:c11 /c glzamain.c /Fo$@
+	cl /I. /experimental:c11atomics /std:c11 /c glzamain.c /Fo$@
 glza: glza.exe
-glza.exe: $(SRC) $(HEADERS)
+glza.exe: $(OBJS)
 	cl $(CFLAGS) $(OBJS) /Fe$@
